@@ -1,0 +1,2 @@
+# autoware_mickrobot
+该节点是为适配autoware.universe自动驾驶框架而编写的ROS2节点，目前仅支持mick_robot_chassis 开源底盘。
