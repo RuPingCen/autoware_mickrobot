@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<launch>
+<!-- 都借鉴自 pacmod -->
+  <arg name="chassis_param_path" default="$(find-pkg-share mick_robot_vehicle_interface)/config/mick_robot.param.yaml"/>
+  <!-- <arg name="pacmod_extra_param_path" default="$(find-pkg-share pacmod_interface)/config/pacmod_extra.param.yaml"/> -->
+  <!-- <arg name="pacmod_diag_publisher_param_path" default="$(find-pkg-share pacmod_interface)/config/pacmod_diag_publisher.param.yaml"/> -->
+
+  <!-- vehicle info -->
+  <arg name="vehicle_info_param_file" default="$(find-pkg-share mick_robot_vehicle_description)/config/vehicle_info.param.yaml"/>
+
+  <!-- mick_robot_vehicle interface -->
+  <node pkg="mick_robot_vehicle_interface" exec="mick_robot_vehicle_interface" name="mick_robot_vehicle_interface" output="screen">
+    <param from="$(var chassis_param_path)"/>
+    <param from="$(var vehicle_info_param_file)"/>
+    <!-- <remap from="input/control_mode_request" to="/control/control_mode_request"/> -->
+  </node>
+
+</launch>
