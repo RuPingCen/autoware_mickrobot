@@ -12,8 +12,6 @@ ament_auto_find_build_dependencies()
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
-set(CMAKE_INSTALL_RPATH /usr/local/lib)
-find_package(serial REQUIRED)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

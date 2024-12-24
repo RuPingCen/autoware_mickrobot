@@ -53,6 +53,7 @@ MickRobotVehicleInterface::MickRobotVehicleInterface()
     /* subscribers */
     using std::placeholders::_1;
     using std::placeholders::_2;
+
     // From autoware
     control_cmd_sub_ = create_subscription<autoware_control_msgs::msg::Control>("/control/command/control_cmd", 1,
                                                                                 std::bind(&MickRobotVehicleInterface::callbackControlCmd, this, _1));
@@ -63,33 +64,28 @@ MickRobotVehicleInterface::MickRobotVehicleInterface()
 
     /* publisher */
     // To Autoware
-    control_mode_pub_   = create_publisher<autoware_vehicle_msgs::msg::ControlModeReport>("/vehicle/status/control_mode", rclcpp::QoS{1});
-    vehicle_twist_pub_  = create_publisher<autoware_vehicle_msgs::msg::VelocityReport>("/vehicle/status/velocity_status", rclcpp::QoS{1});
-    gear_status_pub_    = create_publisher<autoware_vehicle_msgs::msg::GearReport>("/vehicle/status/gear_status", rclcpp::QoS{1});
+    control_mode_pub_         = create_publisher<autoware_vehicle_msgs::msg::ControlModeReport>("/vehicle/status/control_mode", rclcpp::QoS{1});
+    vehicle_twist_pub_        = create_publisher<autoware_vehicle_msgs::msg::VelocityReport>("/vehicle/status/velocity_status", rclcpp::QoS{1});
+    gear_status_pub_          = create_publisher<autoware_vehicle_msgs::msg::GearReport>("/vehicle/status/gear_status", rclcpp::QoS{1});
     // steering_status_pub_ = create_publisher<autoware_vehicle_msgs::msg::SteeringReport>("/vehicle/status/steering_status", rclcpp::QoS{1});
 
     /* Serial */
+
     // From mick_chassis
-    chassis_measure_ptr = new chassis_measure_t();
+    io_service_               = std::make_shared<boost::asio::io_service>();
+    mick_chassis_serial_port_ = std::make_shared<boost::asio::serial_port>(*io_service_);
+
+    chassis_measure_ptr       = new chassis_measure_t();
     try
         {
-            mick_chassis_serial_.setPort(serial_dev_);
-            mick_chassis_serial_.setBaudrate(baud_);
-            serial::Timeout to         = serial::Timeout::simpleTimeout(1000);
-            to.inter_byte_timeout      = 1;
-            to.read_timeout_constant   = 5;
-            to.read_timeout_multiplier = 0;
-            mick_chassis_serial_.setTimeout(to);
-            mick_chassis_serial_.open();
-            mick_chassis_serial_.flushInput(); // 清空缓冲区数据
-    } catch (serial::IOException &e)
+            mick_chassis_serial_port_->open(serial_dev_);
+    } catch (boost::system::system_error &error)
         {
-            RCLCPP_ERROR_STREAM(get_logger(), "Unable to open port." << serial_dev_);
+            RCLCPP_ERROR_STREAM(get_logger(), "Unable to open port." << serial_dev_ << error.what());
             throw;
     }
-    if (mick_chassis_serial_.isOpen())
+    if (mick_chassis_serial_port_->is_open())
         {
-            mick_chassis_serial_.flushInput(); // 清空缓冲区数据
             RCLCPP_INFO_STREAM(get_logger(), "Serial Port " << serial_dev_ << " opened");
         }
     else
@@ -97,6 +93,16 @@ MickRobotVehicleInterface::MickRobotVehicleInterface()
             RCLCPP_ERROR_STREAM(get_logger(), "Unable to open port." << serial_dev_);
             throw;
         }
+    typedef boost::asio::serial_port_base sb;
+    sb::baud_rate                         baud_option(baud_);
+    sb::flow_control                      flow_control(sb::flow_control::none);
+    sb::parity                            parity(sb::parity::none);
+    sb::stop_bits                         stop_bits(sb::stop_bits::one);
+
+    mick_chassis_serial_port_->set_option(baud_option);
+    mick_chassis_serial_port_->set_option(flow_control);
+    mick_chassis_serial_port_->set_option(parity);
+    mick_chassis_serial_port_->set_option(stop_bits);
 
     /* Timer */
     const auto period_ns = rclcpp::Rate(loop_rate_).period();
@@ -218,7 +224,7 @@ void MickRobotVehicleInterface::toVehiclepublishCommands()
                 speed_y = 0;
                 speed_w = 0;
             }
-        send_speed_to_chassis(mick_chassis_serial_, chassis_type_, speed_x, speed_y, speed_w);
+        send_speed_to_chassis(mick_chassis_serial_port_, chassis_type_, speed_x, speed_y, speed_w);
         RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), std::chrono::milliseconds(1000).count(), " send speed to chassis: speed_x = %f speed_w = %f", speed_x,
                              speed_w);
     }
@@ -234,11 +240,16 @@ void MickRobotVehicleInterface::toVehiclepublishCommands()
 
 void MickRobotVehicleInterface::toAutowarepublishStatus()
 {
-    if (0 != mick_chassis_serial_.available())
+    uint8_t     serial_buf[1024];
+    std::string serial_data_string;
+    size_t      bytes_read = mick_chassis_serial_port_->read_some(boost::asio::buffer(serial_buf, 1024));
+    if (bytes_read > 0)
         {
-            std_msgs::msg::String serial_data;
-            serial_data.data       = mick_chassis_serial_.read(mick_chassis_serial_.available());
-            bool serial_data_valid = parseMikcRobotSerialData(serial_data.data, chassis_measure_ptr);
+            for (size_t i = 0; i < bytes_read; ++i)
+                {
+                    serial_data_string.push_back(serial_buf[i]);
+                }
+            bool serial_data_valid = parseMikcRobotSerialData(serial_data_string, chassis_measure_ptr);
             if (serial_data_valid)
                 {
                     chassis_received_time_ = this->now();
@@ -283,7 +294,6 @@ void MickRobotVehicleInterface::toAutowarepublishStatus()
                 {
                     RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), std::chrono::milliseconds(1000).count(), "serial recive data error ...");
                     // delete chassis_measure_ptr;
-                    mick_chassis_serial_.flushInput();
                 }
         }
 }

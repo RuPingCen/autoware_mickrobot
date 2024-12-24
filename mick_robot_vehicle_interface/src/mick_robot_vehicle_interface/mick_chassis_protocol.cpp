@@ -1,7 +1,7 @@
 #include <mick_robot_vehicle_interface/mick_chassis_protocol.hpp>
 
 // 默认采用差速模式  0：差速  1-麦克纳姆轮  2: Ackermann  3:4WS4WD
-void send_speed_to_chassis(serial::Serial &ser_port_fd, int chassis_type, float speed_x, float speed_y, float speed_w)
+void send_speed_to_chassis(std::shared_ptr<boost::asio::serial_port> ser_port_fd, int chassis_type, float speed_x, float speed_y, float speed_w)
 {
     float v1 = 0, v2 = 0, v3 = 0, v4 = 0;
 
@@ -45,7 +45,7 @@ void send_speed_to_chassis(serial::Serial &ser_port_fd, int chassis_type, float 
  * @function  发送四个点击的转速到底盘控制器
  * ＠param w1 w2 w3 w4 表示四个电机的转速 单位　RPM
  */
-void send_rpm_to_chassis(serial::Serial &ser_port_fd, int w1, int w2, int w3, int w4)
+void send_rpm_to_chassis(std::shared_ptr<boost::asio::serial_port> ser_port_fd, int w1, int w2, int w3, int w4)
 {
     uint8_t      data_tem[50];
     unsigned int speed_0ffset = 10000; // 转速偏移10000转
@@ -80,39 +80,9 @@ void send_rpm_to_chassis(serial::Serial &ser_port_fd, int w1, int w2, int w3, in
     data_tem[counter++] = 0xEF;
     data_tem[counter++] = 0xFE;
 
-    ser_port_fd.write(data_tem, counter);
+    boost::asio::write(*ser_port_fd, boost::asio::buffer(data_tem, counter));
 }
 
-// 差速小车
-void send_speed_to_X4chassis(serial::Serial &ser_port_fd, float x, float y, float w)
-{
-    uint8_t       data_tem[50];
-    unsigned int  speed_0ffset = 10; // 速度偏移值 10ｍ/s，把速度转换成正数发送
-    unsigned char i, counter = 0;
-    unsigned int  check = 0;
-
-    data_tem[counter++] = 0xAE;
-    data_tem[counter++] = 0xEA;
-    data_tem[counter++] = 0x0B;
-    data_tem[counter++] = 0xF3;                             // 针对MickX4的小车使用F3 字段      针对MickM4的小车使用F2
-    data_tem[counter++] = ((x + speed_0ffset) * 100) / 256; // X
-    data_tem[counter++] = ((x + speed_0ffset) * 100);
-    data_tem[counter++] = ((y + speed_0ffset) * 100) / 256; // Y
-    data_tem[counter++] = ((y + speed_0ffset) * 100);
-    data_tem[counter++] = ((w + speed_0ffset) * 100) / 256; // X
-    data_tem[counter++] = ((w + speed_0ffset) * 100);
-    data_tem[counter++] = 0x00;
-    data_tem[counter++] = 0x00;
-    for (i = 0; i < counter; i++)
-        {
-            check += data_tem[i];
-        }
-    data_tem[counter++] = 0xff;
-    data_tem[2]         = counter - 2;
-    data_tem[counter++] = 0xEF;
-    data_tem[counter++] = 0xFE;
-    ser_port_fd.write(data_tem, counter);
-}
 // 差速小车
 void send_speed_to_X4chassis(std::shared_ptr<boost::asio::serial_port> ser_port_fd, float x, float y, float w)
 {
@@ -141,10 +111,40 @@ void send_speed_to_X4chassis(std::shared_ptr<boost::asio::serial_port> ser_port_
     data_tem[2]         = counter - 2;
     data_tem[counter++] = 0xEF;
     data_tem[counter++] = 0xFE;
-    // ser_port_fd->write_some(data_tem,counter);
     boost::asio::write(*ser_port_fd, boost::asio::buffer(data_tem, counter));
 }
-void send_speed_to_Ackerchassis(serial::Serial &ser_port_fd, float x, float w)
+// // 差速小车
+// void send_speed_to_X4chassis(std::shared_ptr<boost::asio::serial_port> ser_port_fd, float x, float y, float w)
+// {
+//     uint8_t       data_tem[50];
+//     unsigned int  speed_0ffset = 10; // 速度偏移值 10ｍ/s，把速度转换成正数发送
+//     unsigned char i, counter = 0;
+//     unsigned int  check = 0;
+
+//     data_tem[counter++] = 0xAE;
+//     data_tem[counter++] = 0xEA;
+//     data_tem[counter++] = 0x0B;
+//     data_tem[counter++] = 0xF3;                             // 针对MickX4的小车使用F3 字段      针对MickM4的小车使用F2
+//     data_tem[counter++] = ((x + speed_0ffset) * 100) / 256; // X
+//     data_tem[counter++] = ((x + speed_0ffset) * 100);
+//     data_tem[counter++] = ((y + speed_0ffset) * 100) / 256; // Y
+//     data_tem[counter++] = ((y + speed_0ffset) * 100);
+//     data_tem[counter++] = ((w + speed_0ffset) * 100) / 256; // X
+//     data_tem[counter++] = ((w + speed_0ffset) * 100);
+//     data_tem[counter++] = 0x00;
+//     data_tem[counter++] = 0x00;
+//     for (i = 0; i < counter; i++)
+//         {
+//             check += data_tem[i];
+//         }
+//     data_tem[counter++] = 0xff;
+//     data_tem[2]         = counter - 2;
+//     data_tem[counter++] = 0xEF;
+//     data_tem[counter++] = 0xFE;
+//     // ser_port_fd->write_some(data_tem,counter);
+//     boost::asio::write(*ser_port_fd, boost::asio::buffer(data_tem, counter));
+// }
+void send_speed_to_Ackerchassis(std::shared_ptr<boost::asio::serial_port> ser_port_fd, float x, float w)
 {
     uint8_t       data_tem[50];
     unsigned int  speed_0ffset = 10; // 速度偏移值 10ｍ/s，把速度转换成正数发送
@@ -171,10 +171,10 @@ void send_speed_to_Ackerchassis(serial::Serial &ser_port_fd, float x, float w)
     data_tem[2]         = counter - 2;
     data_tem[counter++] = 0xEF;
     data_tem[counter++] = 0xFE;
-    ser_port_fd.write(data_tem, counter);
+    boost::asio::write(*ser_port_fd, boost::asio::buffer(data_tem, counter));
 }
 
-void send_speed_to_4WS4WDchassis(serial::Serial &ser_port_fd, float x, float y, float w)
+void send_speed_to_4WS4WDchassis(std::shared_ptr<boost::asio::serial_port> ser_port_fd, float x, float y, float w)
 {
     uint8_t       data_tem[50];
     unsigned int  speed_0ffset = 10; // 速度偏移值 10ｍ/s，把速度转换成正数发送
@@ -200,7 +200,7 @@ void send_speed_to_4WS4WDchassis(serial::Serial &ser_port_fd, float x, float y, 
     data_tem[2]         = counter - 2;
     data_tem[counter++] = 0xEF;
     data_tem[counter++] = 0xFE;
-    ser_port_fd.write(data_tem, counter);
+    boost::asio::write(*ser_port_fd, boost::asio::buffer(data_tem, counter));
 }
 
 /**********************************************************
@@ -209,7 +209,7 @@ void send_speed_to_4WS4WDchassis(serial::Serial &ser_port_fd, float x, float y, 
  * 电机的转速 单位　RPM
  * 角度    单位  °度
  **********************************************************/
-void send_rpm_to_4WS4WDchassis(serial::Serial &ser_port_fd, std::vector<float> vw)
+void send_rpm_to_4WS4WDchassis(std::shared_ptr<boost::asio::serial_port> ser_port_fd, std::vector<float> vw)
 {
     if (vw.size() < 12)
         {
@@ -248,10 +248,10 @@ void send_rpm_to_4WS4WDchassis(serial::Serial &ser_port_fd, std::vector<float> v
     data_tem[counter++] = 0xEF;
     data_tem[counter++] = 0xFE;
 
-    ser_port_fd.write(data_tem, counter);
+    boost::asio::write(*ser_port_fd, boost::asio::buffer(data_tem, counter));
 }
 
-void clear_odometry_chassis(serial::Serial &ser_port_fd)
+void clear_odometry_chassis(std::shared_ptr<boost::asio::serial_port> ser_port_fd)
 {
     uint8_t       data_tem[50];
     unsigned char i, counter  = 0;
@@ -283,6 +283,5 @@ void clear_odometry_chassis(serial::Serial &ser_port_fd)
     data_tem[2]         = counter - 2;
     data_tem[counter++] = 0xEF;
     data_tem[counter++] = 0xFE;
-
-    ser_port_fd.write(data_tem, counter);
+    boost::asio::write(*ser_port_fd, boost::asio::buffer(data_tem, counter));
 }

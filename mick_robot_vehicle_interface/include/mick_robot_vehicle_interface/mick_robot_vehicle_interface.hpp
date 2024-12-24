@@ -3,15 +3,15 @@
  * @brief mick_robot 底盘接入 autoware 接口
  * @author wyongcheng wyongcheng2social@foxmail.com
  * @version 1.0
- * @date 2024-11-09
+ * @date 2024-12-24
  * @copyright Copyright (c) 2024
  *
- * 作者:   wyongcheng  修改日期:   2024-11-09    版本:   1.0
+ * 作者:   wyongcheng  修改日期:   2024-12-24    版本:   1.0
  */
 #include "mick_chassis_msg.h"
 #include "mick_chassis_protocol.hpp"
 // #include <async_serial/BufferedAsyncSerial.h>
-#include "serial/serial.h"
+// #include "serial/serial.h"
 #include <autoware_control_msgs/msg/control.hpp>
 #include <autoware_vehicle_info_utils/vehicle_info_utils.hpp>
 #include <autoware_vehicle_msgs/msg/control_mode_report.hpp>
@@ -20,6 +20,8 @@
 #include <autoware_vehicle_msgs/msg/steering_report.hpp>
 #include <autoware_vehicle_msgs/msg/velocity_report.hpp>
 #include <autoware_vehicle_msgs/srv/control_mode_command.hpp>
+#include <boost/asio.hpp>
+#include <boost/asio/serial_port.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
 #include <tier4_vehicle_msgs/msg/vehicle_emergency_stamped.hpp>
@@ -62,7 +64,9 @@ class MickRobotVehicleInterface : public rclcpp::Node
 
     /* Form and to mick_chassis, serial Read and Write */
     // BufferedAsyncSerial *mick_chassis_serial_;
-    serial::Serial mick_chassis_serial_;
+    // serial::Serial                            mick_chassis_serial_;
+    std::shared_ptr<boost::asio::io_service>  io_service_;
+    std::shared_ptr<boost::asio::serial_port> mick_chassis_serial_port_;
 
     /* timer used to publish */
     rclcpp::TimerBase::SharedPtr timer_;

@@ -3,6 +3,8 @@
 
 适配工作参考了Autoware教程 [Creating vehicle interface](https://autowarefoundation.github.io/autoware-documentation/main/how-to-guides/integrating-autoware/creating-vehicle-interface-package/creating-vehicle-interface/)
 
+目前需要安装串口支持
+
 该节点目前实现了以下话题收发：
 
 订阅：

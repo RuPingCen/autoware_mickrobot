@@ -16,7 +16,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/serial_port.hpp>
 
-#include "serial/serial.h"
+// #include "serial/serial.h"
 
 #define WHEEL_RATIO              (19.0)  // 麦克纳母轮模式 减速比 3508电机减速比为1:19
 #define WHEEL_K                  (0.355) // 麦克纳母轮模式
@@ -53,20 +53,18 @@ typedef enum
 #define FRAME_MINIMUM_SIZE (7)           // when data length == 0
 #define FRAME_SIZE(D_LEN)  ((D_LEN) + 4) // data length + frame header length + frame footer length
 
-void send_speed_to_chassis(serial::Serial &ser_port_fd, int chassis_type, float speed_x, float speed_y, float speed_w);
+void send_speed_to_chassis(std::shared_ptr<boost::asio::serial_port> ser_port_fd, int chassis_type, float speed_x, float speed_y, float speed_w);
 
-void send_rpm_to_chassis(serial::Serial &ser_port_fd, int w1, int w2, int w3, int w4);
-
-void send_speed_to_X4chassis(serial::Serial &ser_port_fd, float x, float y, float w);
+void send_rpm_to_chassis(std::shared_ptr<boost::asio::serial_port> ser_port_fd, int w1, int w2, int w3, int w4);
 
 void send_speed_to_X4chassis(std::shared_ptr<boost::asio::serial_port> ser_port_fd, float x, float y, float w);
 
-void send_speed_to_4WS4WDchassis(serial::Serial &ser_port_fd, float x, float y, float w);
+void send_speed_to_4WS4WDchassis(std::shared_ptr<boost::asio::serial_port> ser_port_fd, float x, float y, float w);
 
-void send_speed_to_Ackerchassis(serial::Serial &ser_port_fd, float x, float w);
+void send_speed_to_Ackerchassis(std::shared_ptr<boost::asio::serial_port> ser_port_fd, float x, float w);
 
-void send_rpm_to_4WS4WDchassis(serial::Serial &ser_port_fd, std::vector<float> vw);
+void send_rpm_to_4WS4WDchassis(std::shared_ptr<boost::asio::serial_port> ser_port_fd, std::vector<float> vw);
 
-void clear_odometry_chassis(serial::Serial &ser_port_fd);
+void clear_odometry_chassis(std::shared_ptr<boost::asio::serial_port> ser_port_fd);
 
 #endif
