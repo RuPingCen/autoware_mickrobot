@@ -55,27 +55,39 @@ MickRobotVehicleInterface::MickRobotVehicleInterface()
     using std::placeholders::_2;
 
     // From autoware
-    control_cmd_sub_ = create_subscription<autoware_control_msgs::msg::Control>("/control/command/control_cmd", 1,
+    control_cmd_sub_         = create_subscription<autoware_control_msgs::msg::Control>("/control/command/control_cmd", 1,
                                                                                 std::bind(&MickRobotVehicleInterface::callbackControlCmd, this, _1));
-    gear_cmd_sub_    = create_subscription<autoware_vehicle_msgs::msg::GearCommand>("/control/command/gear_cmd", 1,
+    gear_cmd_sub_            = create_subscription<autoware_vehicle_msgs::msg::GearCommand>("/control/command/gear_cmd", 1,
                                                                                  std::bind(&MickRobotVehicleInterface::callbackGearCmd, this, _1));
+    turn_indicators_cmd_sub_ = create_subscription<autoware_vehicle_msgs::msg::TurnIndicatorsCommand>(
+        "/control/command/turn_indicators_cmd", rclcpp::QoS{1}, std::bind(&MickRobotVehicleInterface::callbackTurnIndicatorsCommand, this, _1));
+    hazard_lights_cmd_sub_ = create_subscription<autoware_vehicle_msgs::msg::HazardLightsCommand>(
+        "/control/command/hazard_lights_cmd", rclcpp::QoS{1}, std::bind(&MickRobotVehicleInterface::callbackHazardLightsCommand, this, _1));
+    // actuation_cmd_sub_ =
+    //     create_subscription<ActuationCommandStamped>("/control/command/actuation_cmd", 1, std::bind(&PacmodInterface::callbackActuationCmd, this, _1));
+    emergency_sub_ = create_subscription<tier4_vehicle_msgs::msg::VehicleEmergencyStamped>(
+        "/control/command/emergency_cmd", 1, std::bind(&MickRobotVehicleInterface::callbackEmergencyCmd, this, _1));
     control_mode_server_ =
         create_service<ControlModeCommand>("input/control_mode_request", std::bind(&MickRobotVehicleInterface::onControlModeRequest, this, _1, _2));
 
     /* publisher */
     // To Autoware
-    control_mode_pub_         = create_publisher<autoware_vehicle_msgs::msg::ControlModeReport>("/vehicle/status/control_mode", rclcpp::QoS{1});
-    vehicle_twist_pub_        = create_publisher<autoware_vehicle_msgs::msg::VelocityReport>("/vehicle/status/velocity_status", rclcpp::QoS{1});
-    gear_status_pub_          = create_publisher<autoware_vehicle_msgs::msg::GearReport>("/vehicle/status/gear_status", rclcpp::QoS{1});
-    // steering_status_pub_ = create_publisher<autoware_vehicle_msgs::msg::SteeringReport>("/vehicle/status/steering_status", rclcpp::QoS{1});
+    control_mode_pub_           = create_publisher<autoware_vehicle_msgs::msg::ControlModeReport>("/vehicle/status/control_mode", rclcpp::QoS{1});
+    vehicle_twist_pub_          = create_publisher<autoware_vehicle_msgs::msg::VelocityReport>("/vehicle/status/velocity_status", rclcpp::QoS{1});
+    gear_status_pub_            = create_publisher<autoware_vehicle_msgs::msg::GearReport>("/vehicle/status/gear_status", rclcpp::QoS{1});
+    steering_status_pub_        = create_publisher<autoware_vehicle_msgs::msg::SteeringReport>("/vehicle/status/steering_status", rclcpp::QoS{1});
+    turn_indicators_status_pub_ = create_publisher<autoware_vehicle_msgs::msg::TurnIndicatorsReport>("/vehicle/status/turn_indicators_status", rclcpp::QoS{1});
+    hazard_lights_status_pub_   = create_publisher<autoware_vehicle_msgs::msg::HazardLightsReport>("/vehicle/status/hazard_lights_status", rclcpp::QoS{1});
+    // actuation_status_pub_       = create_publisher<ActuationStatusStamped>("/vehicle/status/actuation_status", 1);
+    // steering_wheel_status_pub_  = create_publisher<SteeringWheelStatusStamped>("/vehicle/status/steering_wheel_status", 1);
 
     /* Serial */
 
     // From mick_chassis
-    io_service_               = std::make_shared<boost::asio::io_service>();
-    mick_chassis_serial_port_ = std::make_shared<boost::asio::serial_port>(*io_service_);
+    io_service_                 = std::make_shared<boost::asio::io_service>();
+    mick_chassis_serial_port_   = std::make_shared<boost::asio::serial_port>(*io_service_);
 
-    chassis_measure_ptr       = new chassis_measure_t();
+    chassis_measure_ptr         = new chassis_measure_t();
     try
         {
             mick_chassis_serial_port_->open(serial_dev_);
@@ -119,6 +131,17 @@ void MickRobotVehicleInterface::callbackGearCmd(const autoware_vehicle_msgs::msg
 {
     Gear_static = msg->command;
 }
+
+void MickRobotVehicleInterface::callbackTurnIndicatorsCommand(const autoware_vehicle_msgs::msg::TurnIndicatorsCommand::ConstSharedPtr msg)
+{
+    TurnIndicatorsCommand_static = msg->command;
+}
+
+void MickRobotVehicleInterface::callbackHazardLightsCommand(const autoware_vehicle_msgs::msg::HazardLightsCommand::ConstSharedPtr msg)
+{
+    HazardLights_static = msg->command;
+}
+
 void MickRobotVehicleInterface::callbackControlCmd(const autoware_control_msgs::msg::Control::ConstSharedPtr msg)
 {
     control_command_received_time_ = this->now();
@@ -149,7 +172,7 @@ void MickRobotVehicleInterface::toVehiclepublishCommands()
             timeouted = true;
         }
     /* check emergency and timeout */
-    const bool emergency_brake_needed = (is_emergency_ && !use_external_emergency_brake_) || timeouted;
+    const bool emergency_brake_needed = (is_emergency_ && !use_external_emergency_brake_); //|| timeouted;
     if (emergency_brake_needed)
         {
             RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), std::chrono::milliseconds(1000).count(),
@@ -279,6 +302,34 @@ void MickRobotVehicleInterface::toAutowarepublishStatus()
                         gear_report_msg.stamp  = header.stamp;
                         gear_report_msg.report = Gear_static;
                         gear_status_pub_->publish(gear_report_msg);
+                    }
+                    /* publish current status */
+                    {
+                        autoware_vehicle_msgs::msg::SteeringReport steer_msg;
+                        steer_msg.stamp = header.stamp;
+                        if (chassis_measure_ptr->odom_measurements.vx - 0 < 1e-9)
+                            {
+                                steer_msg.steering_tire_angle = 0;
+                            }
+                        else
+                            {
+
+                                steer_msg.steering_tire_angle =
+                                    (chassis_measure_ptr->odom_measurements.wz) * (wheel_base_) / chassis_measure_ptr->odom_measurements.vx;
+                            }
+                        steering_status_pub_->publish(steer_msg);
+                    }
+                    /* publish current turn signal */
+                    {
+                        autoware_vehicle_msgs::msg::TurnIndicatorsReport turn_msg;
+                        turn_msg.stamp  = header.stamp;
+                        turn_msg.report = TurnIndicatorsCommand_static;
+                        turn_indicators_status_pub_->publish(turn_msg);
+
+                        autoware_vehicle_msgs::msg::HazardLightsReport hazard_msg;
+                        hazard_msg.stamp  = header.stamp;
+                        hazard_msg.report = HazardLights_static;
+                        hazard_lights_status_pub_->publish(hazard_msg);
                     }
 
                     if (1 == chassis_measure_ptr->rc.sw1)

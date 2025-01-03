@@ -17,13 +17,19 @@
 #include <autoware_vehicle_msgs/msg/control_mode_report.hpp>
 #include <autoware_vehicle_msgs/msg/gear_command.hpp>
 #include <autoware_vehicle_msgs/msg/gear_report.hpp>
+#include <autoware_vehicle_msgs/msg/hazard_lights_command.hpp>
+#include <autoware_vehicle_msgs/msg/hazard_lights_report.hpp>
 #include <autoware_vehicle_msgs/msg/steering_report.hpp>
+#include <autoware_vehicle_msgs/msg/turn_indicators_command.hpp>
+#include <autoware_vehicle_msgs/msg/turn_indicators_report.hpp>
 #include <autoware_vehicle_msgs/msg/velocity_report.hpp>
 #include <autoware_vehicle_msgs/srv/control_mode_command.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/serial_port.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
+#include <tier4_vehicle_msgs/msg/actuation_command_stamped.hpp>
+#include <tier4_vehicle_msgs/msg/actuation_status_stamped.hpp>
 #include <tier4_vehicle_msgs/msg/vehicle_emergency_stamped.hpp>
 
 // 0 : Differential, 1 : Mecanum, 2 : Ackermann, 3 : 4WS4WD
@@ -35,7 +41,8 @@
 class MickRobotVehicleInterface : public rclcpp::Node
 {
   public:
-    using ControlModeCommand = autoware_vehicle_msgs::srv::ControlModeCommand;
+    using ControlModeCommand      = autoware_vehicle_msgs::srv::ControlModeCommand;
+    using ActuationCommandStamped = tier4_vehicle_msgs::msg::ActuationCommandStamped;
     MickRobotVehicleInterface();
 
   private:
@@ -49,7 +56,12 @@ class MickRobotVehicleInterface : public rclcpp::Node
     rclcpp::Subscription<tier4_vehicle_msgs::msg::VehicleEmergencyStamped>::SharedPtr emergency_sub_;
     // 档位控制
     rclcpp::Subscription<autoware_vehicle_msgs::msg::GearCommand>::SharedPtr gear_cmd_sub_;
-    // ...
+    // 转向灯 假
+    rclcpp::Subscription<autoware_vehicle_msgs::msg::TurnIndicatorsCommand>::SharedPtr turn_indicators_cmd_sub_;
+    // 双闪 危险报警闪光灯
+    rclcpp::Subscription<autoware_vehicle_msgs::msg::HazardLightsCommand>::SharedPtr hazard_lights_cmd_sub_;
+    // 油门 刹车
+    // rclcpp::Subscription<ActuationCommandStamped>::SharedPtr actuation_cmd_sub_;
 
     /* publishers */
     // To autoware
@@ -61,6 +73,14 @@ class MickRobotVehicleInterface : public rclcpp::Node
     rclcpp::Publisher<autoware_vehicle_msgs::msg::VelocityReport>::SharedPtr vehicle_twist_pub_;
     // 上报转向
     rclcpp::Publisher<autoware_vehicle_msgs::msg::SteeringReport>::SharedPtr steering_status_pub_;
+    // 上报转向灯
+    rclcpp::Publisher<autoware_vehicle_msgs::msg::TurnIndicatorsReport>::SharedPtr turn_indicators_status_pub_;
+    // 上报双闪灯
+    rclcpp::Publisher<autoware_vehicle_msgs::msg::HazardLightsReport>::SharedPtr hazard_lights_status_pub_;
+    // 上报油门 刹车
+    // rclcpp::Publisher<ActuationStatusStamped>::SharedPtr                           actuation_status_pub_;
+    // 车门状态
+    //  rclcpp::Publisher<tier4_api_msgs::msg::DoorStatus>::SharedPtr                  door_status_pub_;
 
     /* Form and to mick_chassis, serial Read and Write */
     // BufferedAsyncSerial *mick_chassis_serial_;
@@ -96,8 +116,10 @@ class MickRobotVehicleInterface : public rclcpp::Node
 
     autoware::vehicle_info_utils::VehicleInfo vehicle_info_;
     /* Property */
-    // 内部维护的一个状态，假装给autoware换档
+    // 内部维护状态，假装给autoware换档 换灯
     uint8_t Gear_static;
+    uint8_t TurnIndicatorsCommand_static;
+    uint8_t HazardLights_static;
 
     // Service
     rclcpp::Service<ControlModeCommand>::SharedPtr control_mode_server_;
@@ -135,6 +157,8 @@ class MickRobotVehicleInterface : public rclcpp::Node
     void callbackControlCmd(const autoware_control_msgs::msg::Control::ConstSharedPtr msg);
     void callbackEmergencyCmd(const tier4_vehicle_msgs::msg::VehicleEmergencyStamped::ConstSharedPtr msg);
     void callbackGearCmd(const autoware_vehicle_msgs::msg::GearCommand::ConstSharedPtr msg);
+    void callbackTurnIndicatorsCommand(const autoware_vehicle_msgs::msg::TurnIndicatorsCommand::ConstSharedPtr msg);
+    void callbackHazardLightsCommand(const autoware_vehicle_msgs::msg::HazardLightsCommand::ConstSharedPtr msg);
 
     /*  functions */
     // 车的控制指令在这里通过串口发布
