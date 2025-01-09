@@ -1,0 +1,15 @@
+/**:
+  ros__parameters:
+    base_frame_id: "base_link"
+    command_timeout_ms: 1000
+    loop_rate: 30.0
+    use_external_emergency_brake: true # 遥控器上切换拨杆可以实现紧急停车
+    # serial communication
+    serial_dev: "/dev/serial/by-id/usb-Prolific_Technology_Inc._USB-Serial_Controller-if00-port0"
+    baud: 115200
+
+    joy_ptopic: "/mick_robot/rc_remotes/joy"
+    chassis_type: 0 # default to differential drive  0: Differential 1: Mecanum 2: Ackermann 3: 4WS4WD
+    rc_k: 1
+    rc_min: 0
+    rc_max: 2500
